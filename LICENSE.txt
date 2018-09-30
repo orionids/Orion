@@ -1,0 +1,29 @@
+Orion Open Source Project,
+A General Purpose Application Framwork
+
+Copyright (C) 1996 - 2018 AdaptiveFlow
+adaptiveflow@gmail.com
+
+ All files contained in Orion project are dual-licensed:
+you can redistribute it and/or modify it under the terms of
+the GNU General Public License version 3 as published by
+the Free Software Foundation. For the terms of this 
+license, see <http://www.gnu.org/licenses/>.
+
+ You are free to use these files under the terms of
+the GNU General Public License, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+Public License for more details.
+
+ Alternatively, you can use these files under your own
+license if one of below two conditions are met.
+
+1. You are an employee or owner of below companies
+  Cubictek, http://www.cubictek.co.kr
+  Innowireless, http://www.innowireless.co.kr
+  LG Electronics, http://www.lge.co.kr
+
+2. You have written permission of the copyright holder.
+
+EOF
