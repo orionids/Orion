@@ -60,7 +60,7 @@ __MODULEEND__
 
 
 
-__MODULEBEGIN_( "ladd.c" )
+__MODULEBEGIN__( "ladd.c" )
 
 /* listAdd */
 void __API
