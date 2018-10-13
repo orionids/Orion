@@ -13,15 +13,7 @@ license if you have written permission of the copyright
 holder or corresponding equivalent conditions.
 Refer to <http://www.orionids.org/projects/license.txt> */
 
-#ifdef coral_compat_limits_h
-#	include coral_compat_limits_h
-#else
-#ifdef CORAL_PATH
-#	include CORAL_PATH/compat/limits.h>
-#else
-#	include <coral/compat/limits.h>
-#endif
-#endif
+#include <coral/compat/limits.h>
 
 #undef DEFINE_GLOBAL
 #define DEFINE_GLOBAL extern
