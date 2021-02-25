@@ -1,0 +1,231 @@
+if $MK_RELATIVE == ""
+	source $MK_BASE\/devel/make/template/etc/vim/common.vim
+	let MK_DEVEL=$MK_BASE.g:_.'devel'
+else
+	source $MK_BASE\/$MK_RELATIVE/make/template/etc/vim/common.vim
+	let MK_DEVEL=$MK_BASE.g:_.$MK_RELATIVE
+endif
+
+if has("unix")
+
+if 1
+	" if screen is shared in linux console and xterm, vim's term
+	" setting should be xterm to translate key inputs properly for
+	" both environments
+
+	"t_Co=16 in normal terminals will spoil syntax highting but forcing
+	" term to xterm will solve this problem
+
+	" The order to set term and t_Co is important, if t_Co is set first,
+	" bright colors will forced to have bold property in xterm
+
+	" xterm can be used but I found it has a problem that enter key should
+	" be pressed twice after completing make command in linux, I don't know
+	" exact reason
+	set term=xterm
+
+	" when t_Co is set to 16, more dark color sets will be obtained
+	" in a console
+	set t_Co=16
+else
+	set term=linux
+endif
+	if has("gui_running")
+		"		set imak=Hangul
+		set guifontset=-b&h-lucidatypewriter-medium-r-normal-*-*-180-*-*-m-*-iso8859-1,-baekmuk-gulim-medium-r-normal-*-*-180-*-*-m-*-ksx1001.1997-0
+		"set guifontset=-b&h-lucidatypewriter-medium-r-normal-*-*-160-*-*-m-*-iso8859-1,-baekmuk-gulim-medium-r-normal-*-*-160-*-*-m-*-ksx1001.1997-0
+		let small_font="Lucida_Console:w6:h11:cANSI"
+		let medium_font="Lucida_Console:w7.5:h13:cANSI"
+		let large_font="Lucida_Console:w9.4:h16:cANSI"
+
+	endif
+endif
+
+" it is possible to change bold color property for the current terminal
+command! CTERM : set t_Co=8
+command! XTERM : set t_Co=16
+
+cabbrev wq w
+set vi=
+set nocompatible
+set showcmd
+set nobackup
+set modelines=3
+set noeb
+set vb t_vb=
+autocmd GUIEnter * set visualbell t_vb=
+"if has("mouse")
+"	set mouse=n
+"endif
+syntax on
+set fencs=ucs-bom,utf-8,cp949
+autocmd FileType * set noai nosi nocin nosta indentexpr= formatoptions-=r
+
+function! CheckFileEncoding()
+	let curfenc=&fileencoding
+	" fenc was specified for currently opening file
+	if exists('b:origfenc')
+		if curfenc != b:origfenc
+			" recover default
+			exec 'e! ++enc=' . curfenc
+			let &fileencoding=b:origfenc
+			let b:origfenc=curfenc
+			set nomod
+		else
+			unlet b:origfenc
+		endif
+	endif
+endfunction
+
+function! EncodeFile()
+	if exists('b:origfenc')
+		let b:pushenc=&encoding
+		let b:pushfenc=&fileencoding
+"		let &encoding=b:origfenc
+		let &fileencoding=b:origfenc
+	endif
+endfunction
+
+function! RecoverEncoding()
+	if exists('b:pushenc')
+		let &encoding=b:pushenc
+		let &fileencoding=b:pushfenc
+		unlet b:pushenc
+		unlet b:pushfenc
+	endif
+endfunction
+
+"au BufRead * let b:origfenc=&fileencoding
+"au BufWinEnter * call CheckFileEncoding()
+"au FileWriteCmd * call EncodeFile()
+"au FileWritePost * call RecoverEncoding()
+"au BufWriteCmd * call EncodeFile()
+"au BufWritePost * call RecoverEncoding()
+
+set ruler
+set backspace=indent,eol,start
+set nowrap
+
+" Hide menu
+set go=M
+
+" Make full screen
+let g:mate_resolution = "HIGH"
+
+" Load MaTe project commands
+if filereadable(g:MK_DEVEL."/make/template/etc/vim/mate.vim")
+	exe "source ".g:MK_DEVEL."/make/template/etc/vim/mate.vim"
+else
+	exe "source ".g:MK_DEVEL."/etc/config.vim"
+endif
+if !exists('g:nomaxwin') || g:nomaxwin==0
+"au GUIEnter * simalt ~x
+endif
+exe "set runtimepath+=".g:MK_DEVEL."/make/template/etc/vim,".g:MK_DEVEL."/etc/vim"
+if has("gui_running")
+
+function! MATE_Resolution(resolution)
+	if a:resolution=="LOW"
+		exe "set guifont=".g:mate_small_font
+	elseif a:resolution=="MEDIUM"
+		exe "set guifont=".g:mate_medium_font
+	else
+		exe "set guifont=".g:mate_large_font
+	endif
+endfunction
+call MATE_Resolution(g:mate_resolution)
+endif
+call MATE_Org()
+
+map <PageUp> <C-U><C-U>
+map <PageDown> <C-D><C-D>
+map! <PageUp> <C-O><C-U><C-O><C-U>
+map! <PageDown> <C-O><C-D><C-O><C-D>
+
+map <C-b> <C-U><C-U>
+map <C-f> <C-D><C-D>
+map! <C-b> <C-O><C-U><C-O><C-U>
+map! <C-f> <C-O><C-D><C-O><C-D>
+
+imap <silent> <Down> <C-o>gj
+imap <silent> <Up> <C-o>gk
+nmap <silent> <Down> gj
+nmap <silent> <Up> gk
+
+behave xterm
+
+set modeline
+set fileformats=unix,dos,mac
+function! SetTempPath()
+	let temp=$MK_EXTRA.g:_."temp"
+	let volatile = temp.g:_."volatile"
+	if !isdirectory(volatile)
+		let volatile=temp
+	endif
+	exe "set dir=".volatile
+endfunction
+call SetTempPath()
+
+" Color settings
+hi Normal		  guifg=white  guibg=black
+hi Scrollbar	  guifg=darkcyan guibg=cyan
+hi Menu			  guifg=black guibg=cyan
+hi SpecialKey	      ctermfg=darkred  guifg=Blue
+hi NonText		      ctermfg=darkred  gui=bold	guifg=Blue
+hi Directory	      ctermfg=lightblue	guifg=lightBlue
+hi ErrorMsg		  term=standout    ctermfg=grey  ctermbg=blue  guifg=White  guibg=Red
+hi Search		  term=reverse	ctermfg=white  ctermbg=red	guifg=white  guibg=Red
+hi MoreMsg		      ctermfg=darkgreen	gui=bold  guifg=SeaGreen
+hi ModeMsg		      gui=bold  guifg=White	guibg=Blue
+hi LineNr		  term=underline    ctermfg=darkcyan	guifg=Yellow
+hi Question		  term=standout    ctermfg=darkgreen	gui=bold  guifg=Green
+hi StatusLine	  term=reverse   ctermfg=lightblue ctermbg=white gui=bold guifg=blue guibg=white
+hi StatusLineNC   term=reverse	ctermfg=white ctermbg=lightblue guifg=white guibg=blue
+hi Title		      ctermfg=lightmagenta  gui=bold	guifg=Magenta
+hi Visual		  term=reverse	cterm=reverse  gui=reverse
+hi WarningMsg	  term=standout    ctermfg=darkblue  guifg=Red
+hi Cursor		  guifg=bg	guibg=White
+hi Comment		     ctermfg=darkcyan  guifg=#80a0ff
+hi Constant		  term=underline   ctermfg=magenta  guifg=#ffa0a0
+hi Special		     ctermfg=red  guifg=Orange
+hi Identifier	  term=underline   ctermfg=brown  guifg=#40ffff
+hi Statement	     ctermfg=yellow	gui=bold  guifg=#ffff60
+"hi PreProc		  term=underline  ctermfg=darkblue	guifg=#ff80ff
+hi PreProc		  term=underline  ctermfg=lightblue	guifg=#ff80ff
+hi Type			  term=underline   ctermfg=lightgreen  gui=bold  guifg=#60ff60
+hi Error		  term=reverse	ctermfg=darkcyan  ctermbg=black  guifg=Red	guibg=Black
+hi Todo			  term=standout  ctermfg=black	ctermbg=darkcyan  guifg=Blue  guibg=Yellow
+hi link IncSearch		Visual
+hi link String			Constant
+hi link Character		Constant
+hi link Number			Constant
+hi link Boolean			Constant
+hi link Float			Number
+hi link Function		Identifier
+hi link Conditional		Statement
+hi link Repeat			Statement
+hi link Label			Statement
+hi link Operator		Statement
+hi link Keyword			Statement
+hi link Exception		Statement
+hi link Include			PreProc
+hi link Define			PreProc
+hi link Macro			PreProc
+hi link PreCondit		PreProc
+hi link StorageClass	Type
+hi link Structure		Type
+hi link Typedef			Type
+hi link Tag				Special
+hi link SpecialChar		Special
+hi link Delimiter		Special
+hi link SpecialComment	Special
+hi link Debug			Special
+
+let html_my_rendering=1
+hi def htmlBold                term=NONE cterm=NONE gui=NONE
+hi def htmlBoldUnderline       term=NONE,underline cterm=NONE,underline gui=NONE,underline
+hi def htmlBoldItalic          term=NONE,italic cterm=NONE,italic gui=NONE,italic
+hi def htmlBoldUnderlineItalic term=NONE,italic,underline cterm=NONE,italic,underline gui=NONE,italic,underline
+hi def htmlUnderline           term=underline cterm=underline gui=underline
+hi def htmlUnderlineItalic     term=italic,underline cterm=italic,underline gui=italic,underline
+hi def htmlItalic              term=italic cterm=italic gui=italic
