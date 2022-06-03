@@ -1,15 +1,16 @@
 // vim: ts=4 sw=4 noet :
 
+syntaxHTML = {
+	"color": "<span class=\"",
+	"done": "\">",
+	"end": "</span>"
+};
+
 function
-syntaxHighlight(s, r, c) {
+syntaxHighlight(s, t, c) {
 	function getColor(name) { return c? c[name] : name; }
 	var depth = 0;
-	if (r === undefined)
-		r = {
-			"color": "<span class=\"",
-			"done": "\">",
-			"end": "</span>"
-		};
+	if (t === undefined) t = syntaxHTML;
 
 	var re = RegExp("{|}|\\[|\\]|((\"(?:[^\"\\\\\\n]|\\\\.|\\\\\\n.)*\"|'(?:[^'\\\\\\n]|\\\\.|\\\\\\n.)*')(\\s*:)?|[A-Za-z0-9]*:|\\b(true|false|null)\\b|-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?)", "g")
 	return s.replace(re,
@@ -47,9 +48,11 @@ syntaxHighlight(s, r, c) {
 			}
 		}
 		return color?
-			r.color + color + r.done + match + r.end : match;
+			t.color + color + t.done + match + t.end : match;
 	});
 }
 
-if (typeof exports !== 'undefined')
+if (typeof exports !== 'undefined') {
+	exports.html = syntaxHTML;
 	exports.highlight = syntaxHighlight;
+}
