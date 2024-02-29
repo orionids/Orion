@@ -1,0 +1,21 @@
+\usepackage{ifxetex, ifluatex}
+
+\newif\ifxetexorluatex
+\ifxetex
+	\xetexorluatextrue
+\else
+	\ifluatex
+		\xetexorluatextrue
+	\fi
+\fi
+
+\ifxetexorluatex
+	\usepackage{fontspec}
+	\newcommand*{\geMainFont}[3][] {
+		\setmainfont[#1]{#3}
+	}
+\else
+	\newcommand*{\geMainFont}[3][] {
+		\usepackage{#2}
+	}
+\fi

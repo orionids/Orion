@@ -1,0 +1,53 @@
+\Preamble{xhtml}
+\newif\iflstbg
+\makeatletter
+\lst@AddToHook{Init}{%
+\bgroup%
+	\lstbgfalse
+	\ifx\lst@fillcolor\@empty
+		\def\bgcolor{}
+	\else
+		\lst@fillcolor%
+		\extractcolorspec{.}\html@fillcolor%
+		\expandafter\convertcolorspec\html@fillcolor{HTML}\html@fillcolor%
+		\def\bgcolor{background-color:\#\html@fillcolor;}
+		\lstbgtrue
+	\fi%
+	\ifx\lst@frame\@empty
+		\def\bgborder{}
+	\else%
+
+		\ifx\lst@rulecolor\@empty
+			\def\rulecolor{black}
+		\else%
+			\lst@rulecolor%
+			\extractcolorspec{.}\html@rulecolor%
+			\expandafter\convertcolorspec\html@rulecolor{HTML}\html@rulecolor%
+			\def\rulecolor{\#\html@rulecolor}
+		\fi
+		\def\bgborder{border:1px solid \rulecolor;}
+		\lstbgtrue
+	\fi%
+	\iflstbg
+		\Css{\#listing-\listingN{\bgcolor\bgborder}}%
+	\fi
+\egroup%
+}
+\Configure{lstinputlisting}
+   {\ifvmode \IgnorePar\fi \EndP
+    \gHAdvance\listingN by 1%
+    \HCode{<span class="lstinputlisting" id="listing-\listingN">}%
+    \bgroup\ttfamily
+       \Configure{listings}%
+         %{{\everypar{}\leavevmode}}%
+         {{\everypar{}\leavevmode}}%
+         {\HCode{\Hnewline<span class="label">}}%
+         {\HCode{</span>}}%
+   }
+   {
+    \egroup%
+    \ifvmode \IgnorePar\fi \EndP  \HCode{</span>}\par}%
+\makeatother
+\Css{body { font-family: "\MAINFONT" }}
+\begin{document}
+\EndPreamble
