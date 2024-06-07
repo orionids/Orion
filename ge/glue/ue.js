@@ -377,12 +377,13 @@ ueGetComputedProperty(e,p) {
 function
 ueConsole(parent, option, command)
 {
-	var placeholder, contentTag, font, fontSize;
+	var placeholder, contentTag, font, fontSize, initialCommand;
 	if (option) {
 		placeholder = option.placeholder;
 		contentTag = option.contentTag;
 		font = option.font;
 		fontSize = option.fontSize;
+		initialCommand = option.initialCommand;
 	}
 	if (!contentTag) contentTag = "span";
 	function _line(padding) {
@@ -414,25 +415,25 @@ ueConsole(parent, option, command)
 	function _input() {
 		var input = document.createElement("input");
 		input.setAttribute("autofocus", true);
-		input.setAttribute("style", "font:inherit");
 		input.setAttribute("placeholder", placeholder);
 		input.style.margin = 0;
 		if (ueDetectBrowser() > 0) {
 			input.style.paddingLeft = 0;
 			input.style.fontSize = "100%";
+			input.style.fontFamily = font;
 		} else {
 			input.style.padding = 0;
+			input.style.font = "inherit";
 		}
 		input.style.border = 0;
 		input.style.outline = 0;
 		input.style.width = "100%";
+		input.style.backgroundColor = parent.style.backgroundColor;
 		return input;
 	}
 
-	function _keyup(e) {
-		if (e.keyCode == 13) {
+	function _run(param) {
 			var line = _command_line(inputContainer);
-			var param = input.value;
 
 			lastLine.style.visibility = "hidden";
 			input.value = "";
@@ -488,9 +489,13 @@ ueConsole(parent, option, command)
 					}
 				})(1, 1000);
 			}
-		} else if (input.value == "") {
+	}
+
+	function _keyup(e) {
+		if (input.value == "")
 			_focus(input);
-		}
+		else if (e.keyCode == 13)
+			_run(input.value);
 	}
 
 	function _focus(elem) {
@@ -559,6 +564,7 @@ ueConsole(parent, option, command)
 	element.appendChild(inputLine);
 	var lastLine = line.row;
 	parent.appendChild(element);
+	if (initialCommand) _run(initialCommand);
 }
 
 function
@@ -593,3 +599,4 @@ ueConsoleString(s)
 }
 
 /* EOF */
+
