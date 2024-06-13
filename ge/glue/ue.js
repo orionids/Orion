@@ -414,6 +414,7 @@ ueConsole(parent, option, command)
 
 	function _input() {
 		var input = document.createElement("input");
+		input.setAttribute("id", "ueConsoleInput"); // A form element should have and id or name attribute
 		input.setAttribute("autofocus", true);
 		input.setAttribute("placeholder", placeholder);
 		input.style.margin = 0;
