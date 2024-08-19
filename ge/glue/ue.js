@@ -140,6 +140,42 @@ ueDetectBrowser()
 		parseInt( RegExp.$1 ) : -1;
 }
 
+if (ueDetectBrowser() > 0) {
+	String.prototype.repeat = function(n, z) {
+		var s = "";
+		while (n-- > 0)
+			s += this;
+		return s;
+	}
+
+	function URLSearchParams(s) {
+		var i = s.indexOf('?');
+		if (i >= 0) s = s.substring(i + 1)
+		s = s.split('&');
+
+		for (i = 0; i < s.length; i++ ) {
+			var p = s[i];
+			var j = p.indexOf('=');
+			if (j > 0) this[p.substring(0, j)] = p.substring(j + 1);
+		}
+
+		this.get = function(name) {
+			return this[name];
+		}
+	}
+
+	function XMLHttpRequest() {
+		return new ActiveXObject("Microsoft.XMLHTTP")
+	}
+
+	var JSON = {
+		parse: function(s) {
+			eval("var r=" + s + ";"); // XXX security
+			return r;
+		}
+	}
+}
+
 function
 ue_load_script( url, callback )
 {
@@ -174,13 +210,6 @@ ue_load_script( url, callback )
 	head.appendChild(script);
 }
 
-if (ueDetectBrowser() > 0)
-	String.prototype.repeat = function(n, z) {
-		var s = "";
-		while (n-- > 0)
-			s += this;
-		return s;
-	}
 
 function
 ueLoadScript( url, callback )
@@ -214,19 +243,29 @@ ueLoadScript( url, callback )
 function
 ueSetStorage(name,s)
 {
-	if ( document.location.host && typeof(Storage) !== "undefined") {
-		localStorage.setItem(name,s);
+	if (document.location.host && typeof(Storage) !== "undefined") {
+		if (name === undefined)
+			localStorage.clear();
+		else if (s === undefined) localStorage.removeItem(name);
+		else localStorage.setItem(name,s);
 	} else {
-		var path = 0;
-		var expiry = 0;
-		s = name + "=" + s;
-		if ( !path ) s += ";path=/";
-		if ( !expiry ) {
-			var expire = new Date();
-			expire.setFullYear(expire.getFullYear() + 200);
-			s += ";expires=" + expire.toGMTString();
+		if (name === undefined) {
+			//XXX
+		} else if (s === undefined) {
+			document.cookie = name +
+				'=;Path=/;expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+		} else {
+			var path = 0;
+			var expiry = 0;
+			s = name + "=" + s;
+			if ( !path ) s += ";path=/";
+			if ( !expiry ) {
+				var expire = new Date();
+				expire.setFullYear(expire.getFullYear() + 200);
+				s += ";expires=" + expire.toGMTString();
+			}
+			document.cookie = s;
 		}
-		document.cookie = s;
 	}
 }
 
@@ -234,7 +273,7 @@ function
 ueGetStorage(name)
 {
 	if ( document.location.host && typeof(Storage) !== "undefined") {
-		localStorage.getItem(name);
+		return localStorage.getItem(name);
 	} else {
 		var ca = document.cookie.split(";");
 		for ( var i = 0; i < ca.length; i++ ) {
@@ -265,20 +304,10 @@ ueCompatibleStorage(path,name,callback)
 }
 
 function
-ueRemoveStorage(name)
-{
-	if ( document.location.host && typeof(Storage) !== "undefined") {
-		localStorage.removeItem(name);
-	} else {
-		document.cookie = name + '=;Path=/;expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-	}
-}
-
-function
 ueInjectString(id,s)
 {
 	var e = document.getElementById(id);
-	if ( e ) e.innerHTML = s;
+	if (e) e.innerHTML = s;
 }
 
 function
@@ -298,8 +327,7 @@ ueAddClass(cl,s)
 function
 ueCheckClass(cl,s)
 {
-	return cl.contains ? cl.contains(s) :
-		cl[s] ? true : false;
+	return cl.contains ? cl.contains(s) : cl[s] ? true : false;
 }
 
 function
@@ -371,232 +399,288 @@ ueClosePopup(contents)
 
 function
 ueGetComputedProperty(e,p) {
-	return parseFloat(window.getComputedStyle(ue_get_elem(e))[p]);
+	return window.getComputedStyle(ue_get_elem(e))[p];
 }
 
 function
-ueConsole(parent, option, command)
+ueTerminal(parent, option, command)
 {
-	var placeholder, contentTag, font, fontSize, initialCommand;
+	var placeholder, font, fontSize;
 	if (option) {
 		placeholder = option.placeholder;
-		contentTag = option.contentTag;
 		font = option.font;
 		fontSize = option.fontSize;
-		initialCommand = option.initialCommand;
 	}
-	if (!contentTag) contentTag = "span";
+
+	var compat = ueDetectBrowser() > 0? {
+		empty: true,
+		inputSpace: 3,
+		cursor: function(input, pos) {
+			var range = input.createTextRange();
+			range.move('character', 0);
+			range.select();
+		},
+		input: function(input, line) {
+			function _edit() {
+				if (compat.empty) {
+					input.style.color = "black";
+					input.value = "";
+					compat.empty = false;
+				}
+			}
+			input.style.paddingLeft = 0;
+			input.style.width = "100%";
+			input.style.fontSize = "100%";
+
+			var line = _command_line(
+				terminalContainer = document.createElement("tbody"));
+			// if <!DOCTYPE html> and meta http-equiv was given, size of
+			// input font and default font are mismatched
+
+			input.style.fontFamily = font?
+				font : document.documentElement.currentStyle.fontFamily;
+			terminal.appendChild(terminalContainer);
+
+			input.attachEvent("onkeyup", _keyup);
+			input.attachEvent("onkeydown", _edit);
+			input.attachEvent("onpaste", _edit);
+			input.attachEvent("onclick", function(e) {
+				if (compat.empty) compat.cursor(input, 0);
+			});
+
+			var focus = input.focus;
+			input.focus = function() {
+				compat.empty = true;
+				setTimeout(function() {
+					try {
+						if (compat.empty) {
+							input.style.color = "gray";
+							input.value = input.getAttribute("placeholder");
+							compat.cursor(input, 0);
+						} else {
+							document.body.focus();
+							focus();
+						}
+					} catch (e) {
+					}
+				}, 10);
+			}
+			return line;
+		},
+		line: function(r, c) {
+			var t = _column(r, "100%", c.style.paddingTop);
+
+			var fs = c.style.fontSize
+			if (fs.length <= 0) fs = 16;
+			else fs = parseFloat(fs);
+			c.style.lineHeight = t.style.lineHeight = parseInt(
+				fs + 12 * fs / 81 + 4) + "px";
+
+			c.style.paddingRight = compat.inputSpace + "px";
+			return t;
+		},
+		clear: function() {
+			parent.removeChild(element);
+			regen();
+		}
+	} : {
+		inputSpace: 0,
+		inputWidth: "calc(100% - " + Math.ceil(document.createElement(
+			"canvas").getContext("2d").measureText("&gt; ").width) + "px)",
+		input: function(input) {
+			input.style.width = compat.inputSpace > 0?
+				"100%" : compat.inputWidth;
+			input.style.padding = 0;
+			input.style.font = "inherit";
+			input.addEventListener("keyup", _keyup);
+			terminalContainer = terminal;
+			return _command_line(terminalContainer);
+		},
+		line: function(r, c) {
+			if (compat.inputSpace > 0) {
+				c.style.paddingRight = compat.inputSpace + "px";
+				return _column(r, compat.inputWidth, c.style.paddingTop);
+			}
+			return c;
+		},
+		clear: function() {
+			terminal.replaceChildren(terminalContainer.lastChild);
+		}
+	}
+
+	function _column(row, width, padding) {
+		var col = document.createElement("td");
+		col.style.width = width;
+		col.style.border = 0;
+		if (font) col.style.fontFamily = font;
+		if (fontSize) col.style.fontSize = fontSize;
+		col.style.paddingTop = padding;
+		row.appendChild(col);
+		return col;
+	}
+
 	function _line(padding) {
 		var r = document.createElement("tr");
-		var c = document.createElement("td");
-		var t = document.createElement("td");
-		c.style.width = "0%";
-		t.style.width = "100%";
-		c.style.border = 0;
-		t.style.border = 0;
-		if (font) c.style.fontFamily = t.style.fontFamily = font;
-		if (fontSize) c.style.fontSize = t.style.fontSize = fontSize;
-		if (padding === undefined) padding = 0;
-		c.style.paddingTop = padding + "px";
-		c.style.paddingRight = "3px";
-		t.style.paddingTop = padding + "px";
-		r.appendChild(c);
-		r.appendChild(t);
-		return {"row": r, "content": c, "text": t};
+		var c = _column(
+			r, compat.inputSpace > 0? "0%" : "100%", padding + "px");
+		return {"row": r, "content": c, "text": compat.line(r, c)};
 	}
 
 	function _command_line(container) {
-		line = _line(10);
-		line.content.innerHTML = "&gt;";
+		var line = _line(10);
+		// tailing blank is ignored for multi-column mode but paddingRight 3px
+		// in _line function will take the place of it
+		line.content.innerHTML = "&gt; ";
 		container.appendChild(line.row);
 		return line;
 	}
 
-	function _input() {
-		var input = document.createElement("input");
-		input.setAttribute("autofocus", true);
-		input.setAttribute("placeholder", placeholder);
-		input.style.margin = 0;
-		if (ueDetectBrowser() > 0) {
-			input.style.paddingLeft = 0;
-			input.style.fontSize = "100%";
-			input.style.fontFamily = font;
-		} else {
-			input.style.padding = 0;
-			input.style.font = "inherit";
+	var to;
+	function callback(state, r) {
+		if (output === undefined) {
+			output = _line(0);
+			output.content.colSpan = 2;
+			//var content = document.createElement("span");
+			//output.content.appendChild(content);
+			//output.content = content;
+			terminalContainer.insertBefore(output.row, lastLine);
 		}
-		input.style.border = 0;
-		input.style.outline = 0;
-		input.style.width = "100%";
-		input.style.backgroundColor = parent.style.backgroundColor;
-		return input;
+		if (state == -1) {
+			output.content.innerHTML = r;
+		} else {
+			if (to) {
+				clearTimeout(to);
+				to = null;
+			}
+			if (r) output.content.innerHTML += r;
+			if (state == 0) {
+				lastLine.style.visibility = "visible";
+				input.focus();
+				output = undefined;
+			}
+		}
+		parent.scrollTop = parent.scrollHeight;
+		parent.scrollLeft = 0;
+		document.documentElement.scrollTop = parent.scrollHeight;
+		document.documentElement.scrollLeft = 0;
 	}
 
 	function _run(param) {
-			var line = _command_line(inputContainer);
+		var line = _command_line(terminalContainer);
 
-			lastLine.style.visibility = "hidden";
-			input.value = "";
-			if (ueDetectBrowser() == 6) {
-				var fs = line.content.style.fontSize
-				if (fs.length <= 0) fs = 16;
-				fs = parseFloat(fs);
-				line.content.style.lineHeight =
-				line.text.style.lineHeight =
-				parseInt(fs + 12 * fs / 81 + 4) + "px";
-			}
-			line.text.innerHTML += param;
-			inputContainer.insertBefore(line.row, lastLine);
-			var to;
-			function callback(state, r) {
-				if (output === undefined) {
-					output = _line();
-					output.content.colSpan = 2;
-					var content = document.createElement(contentTag);
-					output.content.appendChild(content);
-					output.content = content;
-					inputContainer.insertBefore(output.row, lastLine);
+		lastLine.style.visibility = "hidden";
+		input.value = "";
+		line.text.innerHTML += param;
+		terminalContainer.insertBefore(line.row, lastLine);
+		to = undefined;
+		if (command("execute", param, callback)) {
+			(function progress(i,interval) {
+				if (to !== null) {
+					callback(-1, "<b>" + ".".repeat(i) + "</b>");
+					if (++i > 3) i = 1;
+					// IE compatible setTimeout with args
+					to = setTimeout((
+						function(i, interval) {
+							return function () {
+								progress(i, interval);
+							}
+						})(i, interval), interval);
 				}
-				if (state == -1) {
-					output.content.innerHTML = r;
-				} else {
-					if (to) {
-						clearTimeout(to);
-						to = null;
-					}
-					if (r) output.content.innerHTML += r;
-					if (state == 0) {
-						lastLine.style.visibility = "visible";
-						_focus(input);
-						output = undefined;
-					}
-				}
-				parent.scrollTop = parent.scrollHeight;
-				parent.scrollLeft = 0;
-			}
-			if (command("execute", param, callback)) {
-				(function progress(i,interval) {
-					if (to !== null) {
-						callback(-1, "<b>" + ".".repeat(i) + "</b>");
-						if (++i > 3) i = 1;
-						// IE compatible setTimeout with args
-						to = setTimeout((
-							function(i, interval) {
-								return function () {
-									progress(i, interval);
-								}
-							})(i, interval), interval);
-					}
-				})(1, 1000);
-			}
+			})(1, 1000);
+		}
 	}
 
 	function _keyup(e) {
 		if (input.value == "")
-			_focus(input);
+			input.focus();
 		else if (e.keyCode == 13)
 			_run(input.value);
 	}
 
-	function _focus(elem) {
-		empty = true;
-		if (ueDetectBrowser() > 0) {
+	var element, terminal, terminalContainer, input, output, lastLine;
+	(function regen() {
+		element = document.createElement("div");
+		terminal = document.createElement("table");
+		terminal.style.width = "100%";
+		terminal.style.border = 0;
+		terminal.style.whiteSpace = "nowrap"; // redundant for multi-column mode
+		terminal.setAttribute("cellspacing", "0");
+		terminal.setAttribute("cellpadding", "0");
+
+		input = document.createElement("input");
+ 		// A form element should have and id or name attribute
+		input.setAttribute("id", "ueTerminalInput");
+		input.setAttribute("autofocus", true);
+		input.setAttribute("placeholder", placeholder);
+		input.style.margin = 0;
+		input.style.border = 0;
+		input.style.outline = 0;
+		input.style.backgroundColor = parent.style.backgroundColor;
+		var line = compat.input(input);
+
+		input.focus();
+		line.text.appendChild(input);
+		element.appendChild(terminal);
+		lastLine = line.row;
+		parent.appendChild(element);
+	})();
+
+	return {
+		placeholder: function(s) {
+			input.setAttribute("placeholder", s === undefined? "" : s);
+		},
+		run: function(s) {
 			setTimeout(function() {
-				try {
-					if (empty) {
-						elem.style.color = "lightgrey";
-						elem.value = placeholder;
-						_cursor(input,0);
-					} else {
-						document.body.focus();
-						elem.focus();
-					}
-				} catch (e) {
-				}
-			}, 10);
-		} else {
-			elem.focus();
+				_run(s);
+			});
+		},
+		clear: function() {
+			compat.clear();
+			output = true; // don't append output
+			callback(0)
 		}
 	}
-
-	var element = document.createElement("div");
-
-	var inputLine = document.createElement("table");
-	inputLine.style.width = "100%";
-	inputLine.style.border = 0;
-	inputLine.setAttribute("cellspacing", "0");
-	inputLine.setAttribute("cellpadding", "0");
-
-	var input = _input();
-	var empty = true;
-	var inputContainer;
-	if (ueDetectBrowser() > 0) {
-		function _edit() {
-			if (empty) {
-				input.style.color = "black";
-				input.value = "";
-				empty = false;
-			}
-		}
-		function _cursor(input, pos) {
-			var range = input.createTextRange();
-			range.move('character', 0);
-			range.select();
-		}
-		inputContainer = document.createElement("tbody");
-		inputLine.appendChild(inputContainer);
-		input.attachEvent("onkeyup", _keyup);
-		input.attachEvent("onkeydown", _edit);
-		input.attachEvent("onpaste", _edit);
-		input.attachEvent("onclick", function(e) {
-			if (empty) _cursor(input, 0);
-		});
-	} else {
-		inputContainer = inputLine;
-		input.addEventListener("keyup", _keyup);
-	}
-
-	var line = _command_line(inputContainer);
-	_focus(input);
-
-	var output;
-	line.text.appendChild(input);
-	element.appendChild(inputLine);
-	var lastLine = line.row;
-	parent.appendChild(element);
-	if (initialCommand) _run(initialCommand);
 }
 
 function
-ueConsoleString(s)
+ueTerminalString(s)
 {
 	function color(name) {
+		currentColor = name;
 		return '<span style="color:' + name + '">'
 	}
+	var currentColor = undefined;
+	var re1 = / {2,}|\t|\n|\r\n|\n\r|\r|\\&|<|>|\033\[[;0-9]*m|\033\[0m/;
+	var re2 = /|(https|http)[^\033\r\n\t '"]*/;
 	return s.replace(
-	/\n|\r\n|\n\r|\r|\t| |&|<|>|\033\[[;0-9]*m/g,
-	function(match) {
-		var r = (this.pattern === undefined?
-		this.pattern = {
-			"&": "&amp;",
-			"<": "&lt;",
-			">": "&gt;",
-			"\033[91m": color("red"),
-			"\033[92m": color("green"),
-			"\033[93m": color("orange"),
-			"\033[95m": color("magenta"),
-			"\033[96m": color("cyan"),
-			"\033[0m": "</span>",
-			"\n": "<br>",
-			"\r\n": "<br>",
-			"\n\r": "<br>",
-			"\r": "<br>",
-			" ": "&nbsp;",
-			"\t": "<span style=white-space:pre>\t</span>"
-		} : this.pattern)[match];
-		return r? r : match;
-	})
+		new RegExp(re1.source + re2.source, "g"),
+		function(match) {
+			if (match.charAt(0) == ' ') return "&nbsp;".repeat(match.length);
+			switch(match) {
+				case '\t': return "&emsp;";
+				case '\n': return "<br>";
+				case '&': return "&amp;";
+				case '<': return "&lt;";
+				case '>': return "&gt;";
+				case '\033[91m':
+				return color("red");
+				case '\033[92m':
+				return color("green");
+				case '\033[93m':
+				return color("yellow");
+				case '\033[94m':
+				return color("blue");
+				case '\033[95m':
+				return color("magenta");
+				case '\033[96m':
+				return color("cyan");
+				case '\033[0m':
+				currentColor = undefined;
+				return '</span>'
+			}
+			return (currentColor? "<a style=color:" + currentColor : "<a") +
+				" target=_blank href=\"" + match + "\">" + match + "</a>";
+		});
 }
 
-/* EOF */
-
+// EOF
