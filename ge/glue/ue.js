@@ -327,8 +327,7 @@ ueAddClass(cl,s)
 function
 ueCheckClass(cl,s)
 {
-	return cl.contains ? cl.contains(s) :
-		cl[s] ? true : false;
+	return cl.contains ? cl.contains(s) : cl[s] ? true : false;
 }
 
 function
@@ -400,7 +399,7 @@ ueClosePopup(contents)
 
 function
 ueGetComputedProperty(e,p) {
-	return parseFloat(window.getComputedStyle(ue_get_elem(e))[p]);
+	return window.getComputedStyle(ue_get_elem(e))[p];
 }
 
 function
@@ -647,14 +646,19 @@ function
 ueTerminalString(s)
 {
 	function color(name) {
+		currentColor = name;
 		return '<span style="color:' + name + '">'
 	}
+	var currentColor = undefined;
+	var re1 = / {2,}|\t|\n|\r\n|\n\r|\r|\\&|<|>|\033\[[;0-9]*m|\033\[0m/;
+	var re2 = /|(https|http)[^\033\r\n\t '"]*/;
 	return s.replace(
-		/ {2,}|\t|\n|\r\n|\n\r|\r|\\&|<|>|\033\[[;0-9]*m|\033\[0m/g,
+		new RegExp(re1.source + re2.source, "g"),
 		function(match) {
 			if (match.charAt(0) == ' ') return "&nbsp;".repeat(match.length);
 			switch(match) {
 				case '\t': return "&emsp;";
+				case '\n': return "<br>";
 				case '&': return "&amp;";
 				case '<': return "&lt;";
 				case '>': return "&gt;";
@@ -670,10 +674,13 @@ ueTerminalString(s)
 				return color("magenta");
 				case '\033[96m':
 				return color("cyan");
-				case '\033[0m': return '</span>'
+				case '\033[0m':
+				currentColor = undefined;
+				return '</span>'
 			}
-			return "<br>"
+			return (currentColor? "<a style=color:" + currentColor : "<a") +
+				" target=_blank href=\"" + match + "\">" + match + "</a>";
 		});
 }
 
-/* EOF */
+// EOF
