@@ -1,134 +1,11 @@
 // vim: ts=4 sw=4 noet :
 
-function ueParameter() {
-	var p = location.search.substring(1);
-	if ( !p ) return null;
-	p = p.split('&');
-	var param = {};
-	for ( var i = 0; i < p.length; i++ ) {
-		var v = p[i].split('=');
-		if ( v.length > 1 ) param[v[0]] = v[1];
-	}
-	return param;
-}
-
-function
-ueSetValue(id,value) {
-	document.getElementById(id).value=value;
-}
-
-function
-ueGetValue(id) {
-	return document.getElementById(id).value;
-}
-
-function uePutContent( a, e ) {
-	ue_get_elem(e).value = a.text;
-}
 
 function
 ue_get_elem(e) {
 	return typeof(e) === "string" ? document.getElementById(e) : e;
 }
 
-function
-ueAppendOption(list,text,index) {
-	var op = new Option();
-	op.text = text;
-	list = ue_get_elem(list);
-	if ( list ) list.options.add(op,index < 0 ? 0 : index);
-}
-
-function
-ueGetOption(list,index) {
-	list = ue_get_elem(list);
-	if( list != null && list.options.length>0 ) {
-		if( index<0 ) index = list.selectedIndex;
-		return list.options[index].text;
-	}
-	return "";
-}
-
-function
-ueGetOptionIndex(list) {
-	list = ue_get_elem(list);
-	if ( list != null ) return list.selectedIndex;
-	return -1;
-}
-
-function
-ueGetOptionCount(id) {
-	var list=document.getElementById(id);
-	if( list!=null ) return list.options.length;
-	return -1;
-}
-
-function
-ueClearOption(id,from,n) {
-	var list = document.getElementById(id);
-	if ( list ) {
-		var i;
-		if ( typeof(from) === "undefined" ) from = 0;
-		if ( typeof(n) === "undefined" ) n = list.options.length;
-		i = from + n;
-		if ( i > list.options.length ) i = list.options.length;
-		while ( --i >= from ) list.remove(i);
-	}
-}
-
-function
-ueRealToHexString(value) {
-	var l = 0, h=0;
-	switch ( value ) {
-		case Number.POSITIVE_INFINITY: h = 0x7FF00000; break;
-		case Number.NEGATIVE_INFINITY: h = 0xFFF00000; break;
-		case +0.0: h = 0x40000000; break;
-		case -0.0: h = 0xC0000000; break;
-		default:
-		if ( isNaN(value) ) {
-			h = 0x7FF80000;
-		}
-		else {
-			if (value <= -0.0) {
-				h = 0x80000000;
-				value = -value;
-			}
-			else {
-				h = 0;
-			}
-
-			var e = Math.floor( Math.log(value) / Math.log(2) );
-			var m = Math.floor( value / Math.pow(2, e) * Math.pow(2, 52) );
-
-			l = m & 0xFFFFFFFF;
-			if( l<0 ) l = (0xFFFFFFFF+l+1)
-			m /= Math.pow(2, 32);
-
-			e += 1023;
-			if ( e >= 0x7FF ) { // infinite
-				e = 0x7FF;
-				m = 0;
-			} else if ( e < 0 ) {
-				e = 0;
-			}
-
-			h = h | (e << 20) | (m & ~(-1 << 20));
-			if( h<0 ) h = (0xFFFFFFFF+h+1)
-		}
-	}
-
-	return h.toString(16) + l.toString(16);
-};
-
-function
-ueCommand( cmd )
-{
-	var iframe = document.createElement("iframe");
-	iframe.setAttribute( "src", cmd.replace( /#/g, "%23" ) );
-	document.documentElement.appendChild(iframe);
-	iframe.parentNode.removeChild(iframe);
-	iframe = null;
-}
 
 function
 ueDetectBrowser()
@@ -153,15 +30,16 @@ if (ueDetectBrowser() > 0) {
 		if (i >= 0) s = s.substring(i + 1)
 		s = s.split('&');
 
-		for (i = 0; i < s.length; i++ ) {
+		for (i = 0; i < s.length; i++) {
 			var p = s[i];
 			var j = p.indexOf('=');
 			if (j > 0) this[p.substring(0, j)] = p.substring(j + 1);
 		}
 
-		this.get = function(name) {
-			return this[name];
-		}
+	}
+
+	URLSearchParams.prototype.get = function(name) {
+		return this[name];
 	}
 
 	function XMLHttpRequest() {
@@ -176,72 +54,9 @@ if (ueDetectBrowser() > 0) {
 	}
 }
 
-function
-ue_load_script( url, callback )
-{
-	var head = document.getElementsByTagName('head')[0];
-	var script = document.createElement('script');
-	script.type = 'text/javascript';
-
-	// old IE cannot load script synchorously if it resides in remote site
-	// so do synchronous GET
-/*	if (document.location.host) { // remote
-		var req = new XMLHttpRequest();
-		req.open("GET", url, false); // 'false': synchronous.
-		req.send(null);
-		if ( req.readyState != 4 || req.status != 200 ) {
-			if ( callback ) callback ( -1 );
-			return;
-		}
-
-		script.text = req.responseText;
-	}
-	else*/ {
-		if ( callback ) {
-			script.onreadystatechange = function() {
-				if (this.readyState == 'complete' )
-					callback(0);
-			};
-			script.onload = function() { callback(0); };
-			script.onerror = function() { callback(-1); };
-		}
-		script.src = url;
-	}
-	head.appendChild(script);
-}
-
 
 function
-ueLoadScript( url, callback )
-{
-	/* setting script.src to non-existing file causes
-	  crash for ie6, and script error for some ie8
-	  so file existence should be tested */
-	var b = ueDetectBrowser();
-	if ( callback && 0<= b && b <= 8 ) {
-		/* if .js file is used for src attr of iframe, default action
-		  is download so it's preferable not to use .js as file extension,
-		  to load a script which can be missing */
-		var f = document.createElement("iframe");
-		f.style.display = "none";
-		f.attachEvent("onload",function() {
-			if ( typeof f.contentWindow["document"] === "object" ) {
-				ue_load_script( url, callback );
-			}
-			else {
-				callback( -1 );
-			}
-			f.parentNode.removeChild(f);
-		}, false );
-		f.src = url;
-		document.getElementsByTagName('head')[0].appendChild(f);
-	} else {
-		ue_load_script( url, callback );
-	}
-}
-
-function
-ueSetStorage(name,s)
+ueSetStorage(name, s)
 {
 	if (document.location.host && typeof(Storage) !== "undefined") {
 		if (name === undefined)
@@ -258,8 +73,8 @@ ueSetStorage(name,s)
 			var path = 0;
 			var expiry = 0;
 			s = name + "=" + s;
-			if ( !path ) s += ";path=/";
-			if ( !expiry ) {
+			if (!path) s += ";path=/";
+			if (!expiry) {
 				var expire = new Date();
 				expire.setFullYear(expire.getFullYear() + 200);
 				s += ";expires=" + expire.toGMTString();
@@ -272,30 +87,31 @@ ueSetStorage(name,s)
 function
 ueGetStorage(name)
 {
-	if ( document.location.host && typeof(Storage) !== "undefined") {
+	if (document.location.host && typeof(Storage) !== "undefined") {
 		return localStorage.getItem(name);
 	} else {
 		var ca = document.cookie.split(";");
-		for ( var i = 0; i < ca.length; i++ ) {
+		for (var i = 0; i < ca.length; i++) {
 			var c = ca[i];
 			var j = c.indexOf(name + "=");
-			if ( j >= 0 ) return c.substring( j + name.length + 1 );
+			if (j >= 0) return c.substring(j + name.length + 1);
 		}
 	}
 	return null;
 }
 
+
 function
-ueCompatibleStorage(path,name,callback)
+ueCompatibleStorage(path, name, callback)
 {
 	var s = ueGetStorage(name);
-	if ( s == null ) {
+	if (s == null) {
 		name = "ueStorage_" + name;
-		if ( typeof ueCompatibleStorageLoaded === "undefined" ) {
-			ueLoadScript(path,function() {
+		if (typeof ueCompatibleStorageLoaded === "undefined") {
+			ueLoadScript(path, function() {
 				ueCompatibleStorageLoaded = 1;
-				callback( window[name] );
-			} );
+				callback(window[name]);
+			});
 			return;
 		}
 		s = window[name];
@@ -303,114 +119,40 @@ ueCompatibleStorage(path,name,callback)
 	callback ( s );
 }
 
+
 function
-ueInjectString(id,s)
+ueGetComputedProperty(e, p)
 {
-	var e = document.getElementById(id);
-	if (e) e.innerHTML = s;
-}
-
-function
-ueGetClass(e)
-{
-	return e.classList ?
-		e.classList : e.className.split(" ");
-}
-
-function
-ueAddClass(cl,s)
-{
-	if ( cl.add ) cl.add(s);
-	else cl.push(s);
-}
-
-function
-ueCheckClass(cl,s)
-{
-	return cl.contains ? cl.contains(s) : cl[s] ? true : false;
-}
-
-function
-ueToggleClass(cl,s)
-{
-//	var cl = ueGetClass(e);
-	if ( cl.toggle ) {
-		cl.toggle(s);
-	} else if ( cl.add ) {
-alert('!!' );
-	} else {
-		cl[s] ? cl.remove(s) :
-cl.push(s);
-// ueAddClass(cl,s);
-	}
-}
-
-function
-ueSetClass(e,cl)
-{
-	if ( !e.classList )
-		e.className = cl.join(" ");
-}
-
-function ue_popup_callback(contents,show) {
-	var e = document.getElementById(contents);
-	e.style.display = e.style.display == show ? "none" : show;
-}
-
-function
-ueMakePopup(item,contents,show,color,minwidth,shadow)
-{
-	var i, n = 0, len = 1;
-	for (; n < len; n++ ) {
-		if ( item instanceof Array ) {
-			len = item.length;
-			i = item[n];
-			
-		} else {
-			i = item;
-		}
-
-		if ( contents instanceof Array ) {
-			if ( len > contents.length ) len = contents.length;
-			c = contents[n];
-		} else {
-			c = contents;
-		}
-
-		if ( c == null ) {
-			c = i + "_contents";
-			i += "_item";
-		}
-		var e = document.getElementById(c);
-		e.setAttribute( "style", "display:none;position:absolute;background-color:"
-			+ color + ";min-width:" + minwidth +
-	    ";box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);z-index:1000" );
-		e = document.getElementById(i);
-		e.setAttribute( "onclick", "ue_popup_callback('" + c + "','" + show +  "')" );
-	}
-}
-
-function
-ueClosePopup(contents)
-{
-	var e = document.getElementById(contents);
-	e.style.display = "none";
-}
-
-function
-ueGetComputedProperty(e,p) {
 	return window.getComputedStyle(ue_get_elem(e))[p];
 }
 
 function
-ueTerminal(parent, option, command)
+ueTerminal(parent, command, option)
 {
-	var placeholder, font, fontSize;
+	// IE6 doesn't allow child position of insertBefore is undefined
+	var placeholder, font, fontSize, border, bgcolor, childPosition = null;
+
+	switch (parent) {
+		case undefined:
+		parent = document.body;
+		childPosition = document.body.firstChild;
+		border = "solid 1px";
+		bgcolor = "lightgrey"; // lightgray doesn't work for IE
+		break;
+		case null: parent = document.body; break;
+		default: parent = ue_get_elem(parent);
+		if (!parent) return console;
+	}
+
 	if (option) {
 		placeholder = option.placeholder;
 		font = option.font;
 		fontSize = option.fontSize;
+		if (option.border) border = option.border;
 	}
+
+	if (border === undefined)
+		border = 0;
 
 	var compat = ueDetectBrowser() > 0? {
 		empty: true,
@@ -454,8 +196,9 @@ ueTerminal(parent, option, command)
 				setTimeout(function() {
 					try {
 						if (compat.empty) {
-							input.style.color = "gray";
-							input.value = input.getAttribute("placeholder");
+							input.style.color = "gray"; // grey doesn't work
+							if (paceholder = input.getAttribute("placeholder"))
+								input.value = placeholder; 
 							compat.cursor(input, 0);
 						} else {
 							document.body.focus();
@@ -573,20 +316,30 @@ ueTerminal(parent, option, command)
 		line.text.innerHTML += param;
 		terminalContainer.insertBefore(line.row, lastLine);
 		to = undefined;
-		if (command("execute", param, callback)) {
-			(function progress(i,interval) {
-				if (to !== null) {
-					callback(-1, "<b>" + ".".repeat(i) + "</b>");
-					if (++i > 3) i = 1;
-					// IE compatible setTimeout with args
-					to = setTimeout((
-						function(i, interval) {
-							return function () {
-								progress(i, interval);
-							}
-						})(i, interval), interval);
-				}
-			})(1, 1000);
+		if (command) {
+			if (command("execute", param, callback)) {
+				(function progress(i,interval) {
+					if (to !== null) {
+						callback(-1, "<b>" + ".".repeat(i) + "</b>");
+						if (++i > 3) i = 1;
+						// IE compatible setTimeout with args
+						to = setTimeout((
+							function(i, interval) {
+								return function () {
+									progress(i, interval);
+								}
+							})(i, interval), interval);
+					}
+				})(1, 1000);
+			}
+		} else {
+			try {
+				eval(param);
+				callback(0);
+			} catch(e) {
+				callback(0);
+				callback(1, e.message);
+			}
 		}
 	}
 
@@ -602,7 +355,8 @@ ueTerminal(parent, option, command)
 		element = document.createElement("div");
 		terminal = document.createElement("table");
 		terminal.style.width = "100%";
-		terminal.style.border = 0;
+		terminal.style.border = border;
+		if (bgcolor) terminal.style.backgroundColor = bgcolor;
 		terminal.style.whiteSpace = "nowrap"; // redundant for multi-column mode
 		terminal.setAttribute("cellspacing", "0");
 		terminal.setAttribute("cellpadding", "0");
@@ -611,18 +365,18 @@ ueTerminal(parent, option, command)
  		// A form element should have and id or name attribute
 		input.setAttribute("id", "ueTerminalInput");
 		input.setAttribute("autofocus", true);
-		input.setAttribute("placeholder", placeholder);
+		if (placeholder) input.setAttribute("placeholder", placeholder);
 		input.style.margin = 0;
 		input.style.border = 0;
 		input.style.outline = 0;
-		input.style.backgroundColor = parent.style.backgroundColor;
+		input.style.backgroundColor = terminal.style.backgroundColor;
 		var line = compat.input(input);
 
 		input.focus();
 		line.text.appendChild(input);
 		element.appendChild(terminal);
 		lastLine = line.row;
-		parent.appendChild(element);
+		parent.insertBefore(element, childPosition);
 	})();
 
 	return {
@@ -638,6 +392,12 @@ ueTerminal(parent, option, command)
 			compat.clear();
 			output = true; // don't append output
 			callback(0)
+		},
+		log: function() {
+			var a, s = "", l = arguments.length;
+			if (l > 0) for (var i = 0; a = arguments[i++], i < l;) s += a + " ";
+			else a = "";
+			callback(1, ueTerminalString(s + a + "\n"));
 		}
 	}
 }
