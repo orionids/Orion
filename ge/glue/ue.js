@@ -24,6 +24,10 @@ if (ueDetectBrowser() > 0) {
 			s += this;
 		return s;
 	}
+	String.prototype.padStart = function(n, s) {
+		var diff = n - this.length;
+		return diff > 0 ? s.repeat(diff, s) + this : this;
+	}
 
 	function URLSearchParams(s) {
 		var i = s.indexOf('?');
@@ -51,7 +55,21 @@ if (ueDetectBrowser() > 0) {
 			eval("var r=" + s + ";"); // XXX security
 			return r;
 		}
-	}
+	};
+	
+	var crypto = {
+		randomUUID: function() { // XXX temp
+			function _rand() {
+				return (Math.random() * 1e9 | 0).toString(16).padStart(8, '0');
+			}
+			var uuid = _rand();
+			for (var i = 0; i < 2; i++) {
+				var r = _rand();
+				uuid += "-" + r.substring(0, 4) + "-" + r.substring(4);
+			}
+			return uuid + _rand();
+		}
+	};
 }
 
 
@@ -130,14 +148,19 @@ function
 ueTerminal(parent, command, option)
 {
 	// IE6 doesn't allow child position of insertBefore is undefined
-	var placeholder, font, fontSize, border, bgcolor, childPosition = null;
+	var placeholder, font, fontSize, border, borderColor, bgcolor;
+	var childPosition = null;
 
 	switch (parent) {
 		case undefined:
 		parent = document.body;
 		childPosition = document.body.firstChild;
 		border = "solid 1px";
+		borderColor = "black";
 		bgcolor = "lightgrey"; // lightgray doesn't work for IE
+		window.onerror = function(e, url, ln) {
+			console.log(e, url, ln);
+		};
 		break;
 		case null: parent = document.body; break;
 		default: parent = ue_get_elem(parent);
@@ -149,10 +172,8 @@ ueTerminal(parent, command, option)
 		font = option.font;
 		fontSize = option.fontSize;
 		if (option.border) border = option.border;
+		if (option.borderColor) borderColor = option.borderColor;
 	}
-
-	if (border === undefined)
-		border = 0;
 
 	var compat = ueDetectBrowser() > 0? {
 		empty: true,
@@ -355,7 +376,8 @@ ueTerminal(parent, command, option)
 		element = document.createElement("div");
 		terminal = document.createElement("table");
 		terminal.style.width = "100%";
-		terminal.style.border = border;
+		terminal.style.border = border === undefined? 0 : border;
+		if (borderColor) terminal.style.borderColor = borderColor;
 		if (bgcolor) terminal.style.backgroundColor = bgcolor;
 		terminal.style.whiteSpace = "nowrap"; // redundant for multi-column mode
 		terminal.setAttribute("cellspacing", "0");
@@ -442,5 +464,158 @@ ueTerminalString(s)
 				" target=_blank href=\"" + match + "\">" + match + "</a>";
 		});
 }
+
+// some utility functions
+
+var http = "http";
+var https = "https";
+function httpreq(protocol, o, callback)
+{
+	var xhttp = new XMLHttpRequest();
+	var host = o.host;
+	var port = o.port;
+	var path = o.path
+	var timeout = o.timeout;
+	xhttp.open(o.method, protocol + "://" + (host? host : "localhost") +
+		(port? ":" + port + path : path));
+	var headers = o.headers;
+	if (headers) for (var h in headers)
+		xhttp.setRequestHeader(h, headers[h]);
+	if (timeout) xhttp.timeout = timeout;
+
+	var data, body;
+	xhttp.send((data = o.data)? data : 
+		(body = o.body)? JSON.stringify(body) : undefined);
+
+	xhttp.onerror =function(e){
+		console.log(e, xhttp.readyState);
+		xhttp.abort();
+	};
+
+	xhttp.ontimeout = function(e) {
+		callback(e);
+		xhttp.abort();
+	}
+
+	xhttp.onreadystatechange = function() {
+		if (xhttp.readyState == 4) {
+			if (xhttp.status >= 400) {
+				callback({
+					statusCode: 400
+				});
+			} else {
+				var r = xhttp.responseText;
+				var res = {
+					statusCode: xhttp.status
+				};
+				if (o.json) {
+					try {
+						r = JSON.parse(r);
+					} catch (e) {
+						f (e, null, res);
+						return;
+					}
+				}
+	callback( null, r, res);
+			}
+		} else if (o.progress && xhttp.readyState === 2) {
+			callback(null, null);
+		}
+	};
+}
+
+var longPollContext = {
+}
+
+function LongPoll(url) {
+	function error() {
+		if (ctx.onerror) ctx.onerror(new Event(-1));
+	}
+	var i = url.indexOf("://");
+	if (i > 0) {
+		var protocol;
+		switch (url.substring(0, i)) {
+			case "ws": protocol = http; break;
+			case "wss": protocol = https; break;
+			default: error(); return;
+		}
+		var clientId = crypto.randomUUID();
+		var host = url.substring(i + 3);
+		this.host = host;
+		this.protocol = protocol;
+		this.clientId = null;
+		this.serverId = null;
+		this.onmessage = null;
+		this.opened = false;
+		var ctx = this;
+		httpreq(protocol, {
+			method: "POST",
+			host: host,
+			path: "/@socket",
+			headers: {
+				"Content-type": "application/json"
+			},
+			body: {
+				clientId: clientId
+			},
+			json: true
+		}, function(err, data) {
+			ctx.protocol = protocol;
+			ctx.host = host;
+			ctx.clientId = clientId;
+			longPollContext[ctx.serverId = data.serverId] = ctx;
+
+			(function longPoll() {
+				httpreq(protocol, {
+					method: "GET",
+					host: host,
+					path: "/@socket?serverId=" + ctx.serverId +
+						"&clientId=" + ctx.clientId,
+					progress: true,
+					timeout: 10000
+				}, function(err, data, res) {
+					if (err) {
+						if (err.statusCode >= 400)
+							console.log("err");
+						else {
+							console.log("LONGPOLL:", err);
+							longPoll();
+						}
+					} else if (data === null) {
+						if (!ctx.opened) {
+							ctx.opened = true;
+							// TODO: buffering is needed!!!! if disconnected!!
+							if (ctx.onopen) ctx.onopen();
+						}
+					} else if (ctx.onmessage) {
+						ctx.onmessage({
+							data: data
+						});
+						longPoll();
+					}
+				});
+			})();
+		});
+	} else {
+		error();
+	}
+}
+
+LongPoll.prototype.send = function(p) {
+	httpreq(this.protocol, {
+		method: "PUT",
+		host: this.host,
+		path: "/@socket?serverId=" + this.serverId +
+			"&clientId=" + this.clientId,
+		data: p
+	}, function(err, data, res) {
+		// XXX
+	})
+}
+
+if (typeof WebSocket === "undefined")
+	var WebSocket = LongPoll;
+else
+	var WebSocket = LongPoll;
 
 // EOF
